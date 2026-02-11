@@ -1,0 +1,11 @@
+stitchr
+IMGTgeneDL
+biopython      
+PySimpleGUI   
+pandas
+numpy
+openpyxl 
+fastapi 
+uvicorn
+python-multipart
+sse-starlette
