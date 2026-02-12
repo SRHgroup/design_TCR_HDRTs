@@ -22,7 +22,9 @@ git clone https://github.com/SRHgroup/design_TCR_HDRTs.git
 cd design_TCR_HDRTs
 ```
 
-### Install anaconda:
+### Install Anaconda:
+
+If you do not have Anaconda installed, then install it using the link below. 
 
 https://repo.anaconda.com/archive/
 
