@@ -4,14 +4,6 @@ Tools for assembling T-cell receptor (TCR) sequences and designing HDR templates
 
 This repository provides scripts to process TCR sequence data and generate HDR template designs in a reproducible workflow.
 
-# The workflow:
-
-#### 1) Install Stitchr and dependencies
-
-#### 2) Prepare input TCR data
-
-#### 3) Run assembly and HDR template design
-
 # Quick Start
 
 ### Clone the repository:
