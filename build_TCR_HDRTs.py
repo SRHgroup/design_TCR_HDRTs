@@ -48,38 +48,32 @@ def setup_logger(log_path):
     return logger
 
 # =========================
-# Constant sequences
-# =========================
-
-LOOKUP_PATH = "databases/TCRregion_lookup.xlsx"
-
-
-# =========================
 # Codon utilities
 # =========================
 
+# Human codon usage obtaind from http://www.kazusa.or.jp/codon/
 human_codon_usage = {
-    "A": {"GCT": 0.18, "GCC": 0.27, "GCA": 0.23, "GCG": 0.32},
-    "R": {"CGT": 0.08, "CGC": 0.18, "CGA": 0.11, "CGG": 0.20, "AGA": 0.21, "AGG": 0.22},
-    "N": {"AAT": 0.46, "AAC": 0.54}, 
-    "D": {"GAT": 0.46, "GAC": 0.54},
-    "C": {"TGT": 0.46, "TGC": 0.54}, 
-    "Q": {"CAA": 0.27, "CAG": 0.73},
-    "E": {"GAA": 0.42, "GAG": 0.58},
-    "G": {"GGT": 0.16, "GGC": 0.34, "GGA": 0.25, "GGG": 0.25},
-    "H": {"CAT": 0.42, "CAC": 0.58},
-    "I": {"ATT": 0.36, "ATC": 0.47, "ATA": 0.17},
-    "L": {"TTA": 0.07, "TTG": 0.13, "CTT": 0.13, "CTC": 0.20, "CTA": 0.07, "CTG": 0.40},
-    "K": {"AAA": 0.43, "AAG": 0.57}, 
-    "M": {"ATG": 1.0},
     "F": {"TTT": 0.46, "TTC": 0.54},
-    "P": {"CCT": 0.28, "CCC": 0.33, "CCA": 0.27, "CCG": 0.12},
-    "S": {"TCT": 0.18, "TCC": 0.22, "TCA": 0.15, "TCG": 0.05, "AGT": 0.15, "AGC": 0.25},
-    "T": {"ACT": 0.24, "ACC": 0.36, "ACA": 0.28, "ACG": 0.12},
-    "W": {"TGG": 1.0},
-    "Y": {"TAT": 0.43, "TAC": 0.57},
-    "V": {"GTT": 0.18, "GTC": 0.24, "GTA": 0.15, "GTG": 0.43},
-    "*": {"TAA": 1.0}
+    "S": {"TCT": 0.19, "TCC": 0.22, "TCA": 0.15, "TCG": 0.05, "AGT": 0.15, "AGC": 0.24},
+    "Y": {"TAT": 0.44, "TAC": 0.56},
+    "C": {"TGT": 0.46, "TGC": 0.54},
+    "L": {"TTA": 0.08, "TTG": 0.13, "CTT": 0.13, "CTC": 0.20, "CTA": 0.07, "CTG": 0.40},
+    "*": {"TAA": 0.30, "TGA": 0.47, "TAG": 0.24},
+    "W": {"TGG": 1.00},
+    "P": {"CCT": 0.29, "CCC": 0.32, "CCA": 0.28, "CCG": 0.11},
+    "H": {"CAT": 0.42, "CAC": 0.58},
+    "Q": {"CAA": 0.27, "CAG": 0.73},
+    "R": {"CGT": 0.08, "CGC": 0.18, "CGA": 0.11, "CGG": 0.20, "AGA": 0.21, "AGG": 0.21},
+    "I": {"ATT": 0.36, "ATC": 0.47, "ATA": 0.17},
+    "T": {"ACT": 0.25, "ACC": 0.36, "ACA": 0.28, "ACG": 0.11},
+    "N": {"AAT": 0.47, "AAC": 0.53},
+    "K": {"AAA": 0.43, "AAG": 0.57},
+    "M": {"ATG": 1.00},
+    "V": {"GTT": 0.18, "GTC": 0.24, "GTA": 0.12, "GTG": 0.46},
+    "A": {"GCT": 0.27, "GCC": 0.40, "GCA": 0.23, "GCG": 0.11},
+    "D": {"GAT": 0.46, "GAC": 0.54},
+    "E": {"GAA": 0.42, "GAG": 0.58},
+    "G": {"GGT": 0.16, "GGC": 0.34, "GGA": 0.25, "GGG": 0.25}
 }
 
 def select_codon(aa, current_codon):
@@ -223,12 +217,12 @@ def make_genbank_records(TCR_df, constants, logger):
 
 def assemble_tcr_hdrt(
     TCR_df,
-    lookup_path,
+    lookup_table,
     logger,
     use_D112K=True
 ):
     logger.info("Loading lookup table...")
-    lookup = pd.read_excel(lookup_path)
+    lookup = pd.read_excel(lookup_table)
     seq_dict = pd.Series(lookup.sequence.values, index=lookup.name).to_dict()
 
     def get_seq(name):
@@ -384,6 +378,13 @@ def assemble_tcr_hdrt(
         TCR_df["synthesis_3_arm"]
     ).str.upper()
 
+    # generate final fragment with BsmBI sites 
+    TCR_df["BsmBI_fragment"] = (
+        constants["BsmBI_5"] + 
+        TCR_df["variable_synthesis_no_BsmBI"] + 
+        constants["BsmBI_3"]
+    ).str.upper()
+
     logger.info("HDRT assembly finished successfully.")
 
     return TCR_df, constants
@@ -393,7 +394,7 @@ def assemble_tcr_hdrt(
 # Main pipeline
 # =========================
 
-def run_tcr_hdrt_pipeline(df: pd.DataFrame, use_D112K=True):
+def run_tcr_hdrt_pipeline(df: pd.DataFrame, lookup_table, use_D112K=True):
     with tempfile.TemporaryDirectory() as tmpdir:
 
         log_path = os.path.join(tmpdir, "run.log")
@@ -427,7 +428,7 @@ def run_tcr_hdrt_pipeline(df: pd.DataFrame, use_D112K=True):
         TCRs = TCRs.drop(columns=[c for c in columns_to_exclude if c in TCRs.columns])
 
         logger.info("Running HDRT assembly...")
-        result_df, constants = assemble_tcr_hdrt(TCRs, LOOKUP_PATH, logger, use_D112K=use_D112K)
+        result_df, constants = assemble_tcr_hdrt(TCRs, lookup_table, logger, use_D112K=use_D112K)
 
         logger.info("Writing FASTA output...")
         fasta_records = [
@@ -455,11 +456,14 @@ def run_tcr_hdrt_pipeline(df: pd.DataFrame, use_D112K=True):
 # =========================
 
 def main():
-    parser = argparse.ArgumentParser(description="TCR HDRT Pipeline (Terminal Version)")
+    parser = argparse.ArgumentParser(description="TCR HDRT Pipeline")
     parser.add_argument("input_tsv", help="Path to input TSV file with TCR sequences")
     parser.add_argument("-o", "--output_dir", default="TCR_HDRT_output", help="Output folder")
     parser.add_argument("--use_D112K", action="store_true", help="Use D112K TRBC variant")
+    parser.add_argument("-l","--lookup_table", default="database/TCRregion_lookup.xlsx",help="Constant TCR region used in the design")
     args = parser.parse_args()
+    
+    lookup_table = args.lookup_table
 
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -470,7 +474,7 @@ def main():
 
     df = pd.read_csv(args.input_tsv, sep="\t")
 
-    result_df, fasta_bytes, gb_files, log_bytes = run_tcr_hdrt_pipeline(df, use_D112K=args.use_D112K)
+    result_df, fasta_bytes, gb_files, log_bytes = run_tcr_hdrt_pipeline(df, lookup_table=lookup_table, use_D112K=args.use_D112K)
 
     # Save TSV
     tsv_path = os.path.join(args.output_dir, "result.tsv")
@@ -493,6 +497,7 @@ def main():
     logger.info(f"Saved {len(gb_files)} GenBank files in {gb_dir}")
 
     logger.info("TCR HDRT pipeline finished successfully.")
+    
     print(f"\nAll results saved in folder: {args.output_dir}")
 
 if __name__ == "__main__":
