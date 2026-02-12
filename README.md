@@ -12,16 +12,19 @@ This repository provides scripts to process TCR sequence data and generate HDR t
 
 #### 3) Run assembly and HDR template design
 
-#### 4) Obtain output files ready for downstream analysis or synthesis
-
 # Quick Start
 
 ### Clone the repository:
 
+Open the terminal and clone the repository
 ```
 git clone https://github.com/SRHgroup/design_TCR_HDRTs.git
 cd design_TCR_HDRTs
 ```
+
+### Install anaconda:
+
+https://repo.anaconda.com/archive/
 
 ### Create and activate a conda environment:
 
@@ -51,15 +54,7 @@ thimble -h
 
 # Example Usage
 
-### Run the included example:
-
-```
-thimble -in example/example_input.tsv -o example/my_output.tsv -r AB -s human
-```
-
-The file my_output.tsv should match the expected output example/example_output.tsv
-
-### To generate HDR templates:
+### To generate TCR HDR templates:
 
 ```
 python build_TCR_HDRTs.py --use_D112K example/example_input.tsv -o example_results
