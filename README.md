@@ -50,6 +50,8 @@ thimble -h
 
 ### To generate TCR HDR templates:
 
+If not already active, then activate conda environment `conda activate stitchr`
+
 ```
 python build_TCR_HDRTs.py --use_D112K example/example_input.tsv -o example_results
 ```
