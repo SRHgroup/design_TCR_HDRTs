@@ -61,8 +61,3 @@ Input files should be provided as tab-separated tables containing TCR sequence i
 An example input file is provided in: example/example_input.tsv
 
 
-HDR template designs
-
-Intermediate files depending on parameters
-
-Output is written to the directory specified with -o.
