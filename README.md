@@ -9,6 +9,7 @@ This repository provides scripts to process TCR sequence data and generate HDR t
 ### Clone the repository:
 
 Open the terminal and move to the location where you want the program to be `cd /path/to/folder`
+
 Then clone the repository using the following command: 
 
 ```
