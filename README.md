@@ -8,7 +8,9 @@ This repository provides scripts to process TCR sequence data and generate HDR t
 
 ### Clone the repository:
 
-Open the terminal and clone the repository
+Open the terminal and move to the location where you want the program to be `cd /path/to/folder`
+Then clone the repository using the following command: 
+
 ```
 git clone https://github.com/SRHgroup/design_TCR_HDRTs.git
 cd design_TCR_HDRTs
@@ -50,7 +52,7 @@ thimble -h
 
 ### To generate TCR HDR templates:
 
-If not already active, then activate conda environment `conda activate stitchr`
+If the conda environment is not already active, then activate conda environment `conda activate stitchr`
 
 ```
 python build_TCR_HDRTs.py --use_D112K example/example_input.tsv -o example_results
