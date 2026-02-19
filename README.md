@@ -79,7 +79,7 @@ python build_TCR_HDRTs.py example/example_input.tsv -o example_results
 
 ### Input Data
 
-Input files should be provided as tab-separated tables containing TCR sequence information compatible with STITCHR formatting (https://jamieheather.github.io/stitchr).
+Input files should be provided as tab-separated tables containing TCR sequence information compatible with STITCHR formatting - https://jamieheather.github.io/stitchr.
 
 An example input file is provided in: example/example_input.tsv
 
