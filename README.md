@@ -48,12 +48,12 @@ stitchrdl -s human
 
 ### Test the installation:
 
-# Test Stitchr
+#### Test Stitchr
 ```
 stitchr -h
 thimble -h
 ```
-# Test the build_TCR_HDRTs.py design script
+#### Test the build_TCR_HDRTs.py design script
 ```
 python build_TCR_HDRTs.py -h 
 ```
