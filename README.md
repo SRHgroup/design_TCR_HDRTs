@@ -53,7 +53,7 @@ stitchrdl -s human
 stitchr -h
 thimble -h
 ```
-#### Test the build_TCR_HDRTs.py design script
+#### Test build_TCR_HDRTs.py 
 ```
 python build_TCR_HDRTs.py -h 
 ```
