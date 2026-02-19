@@ -65,7 +65,7 @@ python build_TCR_HDRTs.py -h
 ### To generate TCR HDR templates:
 
 #### Run using D112K TRBC variant
-For additional details - https://www.nature.com/articles/s41587-024-02531-6
+For additional details on the D112K TRBC variant, see https://www.nature.com/articles/s41587-024-02531-6
 ```
 conda activate stitchr
 python build_TCR_HDRTs.py --use_D112K example/example_input.tsv -o example_results
