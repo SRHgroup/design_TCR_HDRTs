@@ -23,7 +23,7 @@ cd design_TCR_HDRTs
 
 ### Install Anaconda:
 
-If you do not have Anaconda installed, then install it using the link below. 
+If Anaconda is not installed on your system, then install it using the link below.
 
 https://repo.anaconda.com/archive/
 
@@ -64,9 +64,17 @@ python build_TCR_HDRTs.py -h
 
 ### To generate TCR HDR templates:
 
+#### Run using D112K TRBC variant
+For additional details - https://www.nature.com/articles/s41587-024-02531-6
 ```
 conda activate stitchr
 python build_TCR_HDRTs.py --use_D112K example/example_input.tsv -o example_results
+```
+
+#### Run using wildtype TRBC variant
+```
+conda activate stitchr
+python build_TCR_HDRTs.py example/example_input.tsv -o example_results
 ```
 
 ### Input Data
