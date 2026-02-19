@@ -50,7 +50,7 @@ stitchrdl -s human
 
 ### Test the installation:
 
-#### Test Stitchr
+#### Test STITCHR
 ```
 stitchr -h
 thimble -h
