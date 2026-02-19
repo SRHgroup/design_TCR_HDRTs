@@ -34,13 +34,15 @@ conda create -n stitchr python=3.10 -y
 conda activate stitchr
 ```
 
-### Install dependencies:
+### Install STITCHR and dependencies:
+
+For more information about STITCHR - https://jamieheather.github.io/stitchr
 
 ```
 pip install -r requirements.txt
 ```
 
-### Download gene data for Stitchr:
+### Download gene data for STITCHR:
 
 ```
 stitchrdl -s human
