@@ -29,22 +29,22 @@ def setup_logger(log_path):
     logger = logging.getLogger("TCR_pipeline")
     logger.setLevel(logging.INFO)
 
-    logger.handlers.clear()
-    
+    if logger.handlers:
+        return logger   # prevents duplicate handlers
+
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s"
+    )
+
     fh = logging.FileHandler(log_path)
-    fh.setLevel(logging.INFO)
-    
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    
     fh.setFormatter(formatter)
+
+    ch = logging.StreamHandler()
     ch.setFormatter(formatter)
-    
+
     logger.addHandler(fh)
     logger.addHandler(ch)
-    
+
     return logger
 
 # =========================
@@ -133,16 +133,18 @@ def replace_restriction_sites(var_seq_series, var_aa_series, motifs=["CGTCTC","G
 # =========================
 
 def make_genbank_records(TCR_df, constants, logger):
-    logger.info("Generating GenBank files per TCR...")
-    gb_files = {}
 
-    for _, row in TCR_df.iterrows():
-        full_seq = row["complete_insert_no_BsmBI"]
+    gb_files = {
+        "Clonal_Gene": {},
+        "BsmBI_Golden_Gate": {}
+    }
+
+    def build_record(seq, record_id, description, feature_blocks):
         record = SeqRecord(
-            Seq(full_seq),
-            id=row["TCR_name"],
-            name=row["TCR_name"],
-            description="HDRT construct"
+            Seq(seq),
+            id=record_id,
+            name=record_id,
+            description=description
         )
         record.annotations["molecule_type"] = "DNA"
         record.annotations["topology"] = "linear"
@@ -151,11 +153,10 @@ def make_genbank_records(TCR_df, constants, logger):
         features = []
         pos = 0
 
-        def add_feature(seq_fragment, label):
-            nonlocal pos
-            length = len(seq_fragment)
-            if length == 0:
-                return
+        for fragment, label in feature_blocks:
+            if not fragment:
+                continue
+            length = len(fragment)
             features.append(
                 SeqFeature(
                     FeatureLocation(pos, pos + length),
@@ -165,49 +166,63 @@ def make_genbank_records(TCR_df, constants, logger):
             )
             pos += length
 
-        # Annotate structure in assembly order
-        add_feature(constants["hom_5"], "hom_5")
-        add_feature(constants["Linker_1"], "Linker_1")
-        add_feature(constants["T2A"], "T2A")
-        add_feature(row["TRB_nt_trim"], "TRB_variable")
-        add_feature(row["TRBC_nt"], "TRBC")
-        add_feature(constants["Furin"], "Furin")
-        add_feature(constants["Linker_2"], "Linker_2")
-        add_feature(constants["P2A"], "P2A")
-        add_feature(row["TRA_nt_trim"], "TRA_variable")
-        add_feature(constants["TRAC_const"], "TRAC")
-        add_feature(constants["hom_3"], "hom_3")
-
-        features.append(
-            SeqFeature(
-                FeatureLocation(0, len(row["synthesis_5_arm"])),
-                type="misc_feature",
-                qualifiers={"label": "synthesis_5_arm"}
-            )
-        )
-        var_start = len(row["synthesis_5_arm"])
-        var_end = var_start + len(row["variable_synthesis_no_BsmBI"])
-        features.append(
-            SeqFeature(
-                FeatureLocation(var_start, var_end),
-                type="misc_feature",
-                qualifiers={"label": "variable_synthesis_no_BsmBI"}
-            )
-        )
-        features.append(
-            SeqFeature(
-                FeatureLocation(var_end, len(full_seq)),
-                type="misc_feature",
-                qualifiers={"label": "synthesis_3_arm"}
-            )
-        )
-
         record.features = features
+        return record
 
-        # Save in-memory GenBank
+    for _, row in TCR_df.iterrows():
+
+        # -------------------------
+        # Clonal construct
+        # -------------------------
+        standard_blocks = [
+            (constants["hom_5"], "hom_5"),
+            (constants["Linker_1"], "Linker_1"),
+            (constants["T2A"], "T2A"),
+            (row["TRB_nt_trim"], "TRB_variable"),
+            (row["TRBC_nt"], "TRBC"),
+            (constants["Furin"], "Furin"),
+            (constants["Linker_2"], "Linker_2"),
+            (constants["P2A"], "P2A"),
+            (row["TRA_nt_trim"], "TRA_variable"),
+            (constants["TRAC_const"], "TRAC"),
+            (constants["hom_3"], "hom_3"),
+        ]
+
+        record_std = build_record(
+            seq=row["complete_insert_no_BsmBI"],
+            record_id=row["TCR_name"],
+            description="HDRT construct",
+            feature_blocks=standard_blocks
+        )
+
         buffer = io.StringIO()
-        SeqIO.write(record, buffer, "genbank")
-        gb_files[f"{row['TCR_name']}.gb"] = buffer.getvalue().encode()
+        SeqIO.write(record_std, buffer, "genbank")
+        gb_files["Clonal_Gene"][f"{row['TCR_name']}.gb"] = buffer.getvalue().encode()
+
+        # -------------------------
+        # BsmBI Golden Gate construct
+        # -------------------------
+        bsmBI_blocks = [
+            (constants["BsmBI_5"], "BsmBI_5"),
+            (row["TRB_nt_trim"], "TRB_variable"),
+            (row["TRBC_nt"], "TRBC"),
+            (constants["Furin"], "Furin"),
+            (constants["Linker_2"], "Linker_2"),
+            (constants["P2A"], "P2A"),
+            (row["TRA_nt_trim"], "TRA_variable"),
+            (constants["BsmBI_3"], "BsmBI_3"),
+        ]
+
+        record_bsmBI = build_record(
+            seq=row["BsmBI_fragment"],
+            record_id=row["TCR_name"] + "_BsmBI",
+            description="HDRT construct with BsmBI sites",
+            feature_blocks=bsmBI_blocks
+        )
+
+        buffer_bsmBI = io.StringIO()
+        SeqIO.write(record_bsmBI, buffer_bsmBI, "genbank")
+        gb_files["BsmBI_Golden_Gate"][f"{row['TCR_name']}_BsmBI.gb"] = buffer_bsmBI.getvalue().encode()
 
     return gb_files
 
@@ -221,7 +236,10 @@ def assemble_tcr_hdrt(
     logger,
     use_D112K=True
 ):
-    logger.info("Loading lookup table...")
+
+    logger.info("Running HDRT assembly")
+    
+    logger.info("Loading lookup table")
     lookup = pd.read_excel(lookup_table)
     seq_dict = pd.Series(lookup.sequence.values, index=lookup.name).to_dict()
 
@@ -234,7 +252,7 @@ def assemble_tcr_hdrt(
     # Constants
     # -------------------------
     
-    logger.info("Preparing constants...")
+    logger.info("Preparing constants")
 
     labels = [
         "hom_5","Linker_1","T2A","Furin",
@@ -248,7 +266,7 @@ def assemble_tcr_hdrt(
     # -------------------------
     # TRBC mapping
     # -------------------------
-    logger.info("Mapping TRBC regions...")
+    logger.info("Mapping TRBC regions")
 
     TCR_df["TRBC_nt"] = np.select(
         [
@@ -267,7 +285,7 @@ def assemble_tcr_hdrt(
     # -------------------------
     # Trim sequences
     # -------------------------
-    logger.info("Trimming TRA/TRB sequences...")
+    logger.info("Trimming TRA/TRB sequences")
 
     TCR_df["TRA_nt_trim"] = (
         TCR_df["TRA_nt"]
@@ -284,7 +302,7 @@ def assemble_tcr_hdrt(
     # -------------------------
     # Assemble constructs
     # -------------------------
-    logger.info("Assembling HDRT constructs...")
+    logger.info("Assembling HDRT constructs")
 
     TCR_df["synthesis_5_arm"] = (
         constants["hom_5"] +
@@ -315,7 +333,7 @@ def assemble_tcr_hdrt(
     # -------------------------
     # Translation
     # -------------------------
-    logger.info("Translating constructs...")
+    logger.info("Translating constructs")
 
     tra_c_terminal = (constants["tra_c_terminal"]).upper()
     TCR_df["mature_nt"] = (
@@ -328,14 +346,15 @@ def assemble_tcr_hdrt(
     # -------------------------
     # Reading frame check
     # -------------------------
-    logger.info("Checking reading frames...")
+    logger.info("Checking reading frames")
 
+    # - 1 since alpha trac locus starts out of frame 
     seq_len = TCR_df["variable_synthesis"].str.len() - 1
     mask = (seq_len % 3) != 0
 
     if mask.any():
         n_bad = mask.sum()
-        logger.warning(f"{n_bad} construct(s) are not in frame.")
+        logger.warning(f"{n_bad} construct(s) are not in frame")
 
         report = TCR_df.loc[mask, ["TCR_name"]].copy()
         report["length"] = seq_len[mask]
@@ -343,12 +362,12 @@ def assemble_tcr_hdrt(
 
         logger.warning("\n" + report.to_string(index=False))
     else:
-        logger.info("All constructs are in frame.")
+        logger.info("All constructs are in frame")
 
     # -------------------------
     # BsmBI detection
     # -------------------------
-    logger.info("Scanning for BsmBI restriction sites...")
+    logger.info("Scanning for BsmBI restriction sites")
 
     motifs = ["CGTCTC", "GAGACG"]
 
@@ -364,7 +383,7 @@ def assemble_tcr_hdrt(
             logger.info(f"{name}: No restriction site detected")
 
     # Remove sites
-    logger.info("Removing BsmBI restriction sites where necessary...")
+    logger.info("Removing BsmBI restriction sites where necessary")
 
     TCR_df["variable_synthesis_no_BsmBI"] = replace_restriction_sites(
         TCR_df["variable_synthesis"],
@@ -385,7 +404,7 @@ def assemble_tcr_hdrt(
         constants["BsmBI_3"]
     ).str.upper()
 
-    logger.info("HDRT assembly finished successfully.")
+    logger.info("HDRT assembly finished successfully")
 
     return TCR_df, constants
 
@@ -394,62 +413,94 @@ def assemble_tcr_hdrt(
 # Main pipeline
 # =========================
 
-def run_tcr_hdrt_pipeline(df: pd.DataFrame, lookup_table, use_D112K=True):
-    with tempfile.TemporaryDirectory() as tmpdir:
+def run_tcr_hdrt_pipeline(df: pd.DataFrame, lookup_table, logger, output_dir, use_D112K=True):
+    
+    logger.info("Starting TCR HDRT pipeline")
 
-        log_path = os.path.join(tmpdir, "run.log")
-        logger = setup_logger(log_path)
+    input_path = os.path.join(output_dir, "input.tsv")
+    stitchr_path = os.path.join(output_dir, "stitchr.tsv")
 
-        logger.info("Starting TCR HDRT pipeline")
+    df.to_csv(input_path, sep="\t", index=False)
 
-        input_path = os.path.join(tmpdir, "input.tsv")
-        stitchr_path = os.path.join(tmpdir, "stitchr.tsv")
-        fasta_path = os.path.join(tmpdir, "result.fasta")
+    logger.info("Running STITCHR (thimble)")
 
-        df.to_csv(input_path, sep="\t", index=False)
-
-        logger.info("Running STITCHR (thimble)...")
+    try:
         subprocess.run(
             ["thimble", "-in", input_path, "-o", stitchr_path, "-r", "AB", "-s", "human"],
-            check=True
+            check=True,
+            capture_output=True,
+            text=True
         )
 
-        TCRs = pd.read_csv(stitchr_path, sep="\t")
+    except FileNotFoundError:
+        logger.error(
+            "STITCHR (thimble) was not found. "
+            "Please ensure it is installed and available in your PATH."
+        )
+        raise SystemExit(1)
 
-
-        columns_to_exclude = [
-            "Linker", "Link_order",
-            "TRA_5_prime_seq", "TRA_3_prime_seq",
-            "TRB_5_prime_seq", "TRB_3_prime_seq",
-            "Linked_nt", "Linked_aa"
-        ]
+    except subprocess.CalledProcessError as e:
+        logger.error("STITCHR (thimble) failed to run successfully")
         
-        # Drop unwanted columns if they exist
-        TCRs = TCRs.drop(columns=[c for c in columns_to_exclude if c in TCRs.columns])
+        if e.stdout:
+            logger.error("STDOUT:\n" + e.stdout.strip())
+        if e.stderr:
+            logger.error("STDERR:\n" + e.stderr.strip())
 
-        logger.info("Running HDRT assembly...")
-        result_df, constants = assemble_tcr_hdrt(TCRs, lookup_table, logger, use_D112K=use_D112K)
+        raise SystemExit(1)
 
-        logger.info("Writing FASTA output...")
-        fasta_records = [
-            SeqRecord(Seq(seq), id=name, description="")
-            for name, seq in zip(result_df["TCR_name"], result_df["complete_insert_no_BsmBI"])
-        ]
-        SeqIO.write(fasta_records, fasta_path, "fasta")
+    TCRs = pd.read_csv(stitchr_path, sep="\t")
 
-        with open(fasta_path, "rb") as f:
-            fasta_bytes = f.read()
+    # -------------------------
+    # Check STITCHR warnings
+    # -------------------------
+    if "Warnings/Errors" in TCRs.columns:
+        logger.info("Checking STITCHR warnings")
 
-        logger.info("Writing GenBank files...")
-        gb_files = make_genbank_records(result_df, constants, logger)
+        for _, row in TCRs.iterrows():
+            warning_msg = row["Warnings/Errors"]
 
-        logger.info("Writing logfile...")
-        with open(log_path, "rb") as f:
-            log_bytes = f.read()
+            # Treat NaN, empty strings, and "[None]" as no warning
+            if pd.notna(warning_msg):
+                msg = str(warning_msg).strip()
+                if msg and msg != "[None]":
+                    tcr_name = row.get("TCR_name", "Unknown_TCR")
 
-        logger.info("Pipeline finished successfully.")
+                    # Stop program if "Error:" is found
+                    if "Error:" in msg:
+                        logger.error(f"STITCHR error for {tcr_name}: {msg}")
+                        raise SystemExit(1)
 
-        return result_df, fasta_bytes, gb_files, log_bytes
+                    # Otherwise log as warning
+                    logger.warning(f"STITCHR warning for {tcr_name}: {msg}")
+    else:
+        logger.warning("No 'Warnings/Errors' found in the STITCHR output.")
+
+    # -------------------------
+    # Cleanup data 
+    # -------------------------
+    columns_to_exclude = [
+        "Linker", "Link_order",
+        "TRA_5_prime_seq", "TRA_3_prime_seq",
+        "TRB_5_prime_seq", "TRB_3_prime_seq",
+        "Linked_nt", "Linked_aa"
+    ]
+    
+    # Drop unwanted columns if they exist
+    TCRs = TCRs.drop(columns=[c for c in columns_to_exclude if c in TCRs.columns])
+
+    # -------------------------
+    # Build TCR HDRTs  
+    # -------------------------
+
+    result_df, constants = assemble_tcr_hdrt(TCRs, lookup_table, logger, use_D112K=use_D112K)
+
+    # -------------------------
+    # Writing GenBank files
+    # -------------------------
+    gb_files = make_genbank_records(result_df, constants, logger)
+
+    return result_df, gb_files
 
 # =========================
 # Main terminal interface
@@ -474,29 +525,53 @@ def main():
 
     df = pd.read_csv(args.input_tsv, sep="\t")
 
-    result_df, fasta_bytes, gb_files, log_bytes = run_tcr_hdrt_pipeline(df, lookup_table=lookup_table, use_D112K=args.use_D112K)
+    result_df, gb_files = run_tcr_hdrt_pipeline(df, output_dir=args.output_dir, logger=logger, lookup_table=lookup_table, use_D112K=args.use_D112K)
 
-    # Save TSV
+    # Organize the order of columns found in result_df before saving it to tsv
+    priority_cols = [
+        "TCR_name",
+        "Warnings/Errors",
+        "TRAV",
+        "TRAJ",
+        "TRA_CDR3",
+        "TRBV",
+        "TRBJ",
+        "TRB_CDR3",
+        "TRAC",
+        "TRBC",
+        "TRA_leader",
+        "TRB_leader",
+        "complete_insert_no_BsmBI",
+        "BsmBI_fragment",
+    ]
+
+    # Keep only columns that actually exist (prevents KeyError)
+    priority_cols_existing = [col for col in priority_cols if col in result_df.columns]
+    remaining_cols = [col for col in result_df.columns if col not in priority_cols_existing]
+
+    # Reorder DataFrame
+    result_df = result_df[priority_cols_existing + remaining_cols]
+
+    # Save results
     tsv_path = os.path.join(args.output_dir, "result.tsv")
     result_df.to_csv(tsv_path, sep="\t", index=False)
-    logger.info(f"Saved TSV: {tsv_path}")
-
-    # Save FASTA
-    fasta_path = os.path.join(args.output_dir, "result.fasta")
-    with open(fasta_path, "wb") as f:
-        f.write(fasta_bytes)
-    logger.info(f"Saved FASTA: {fasta_path}")
+    logger.info(f"Result saved in: {tsv_path}")
 
     # Save GenBank files
-    gb_dir = os.path.join(args.output_dir, "GenBank_files")
-    os.makedirs(gb_dir, exist_ok=True)
-    for filename, content in gb_files.items():
-        path = os.path.join(gb_dir, filename)
-        with open(path, "wb") as f:
-            f.write(content)
-    logger.info(f"Saved {len(gb_files)} GenBank files in {gb_dir}")
+    gb_base_dir = os.path.join(args.output_dir, "GenBank_files")
 
-    logger.info("TCR HDRT pipeline finished successfully.")
+    for subfolder, files in gb_files.items():
+        subfolder_path = os.path.join(gb_base_dir, subfolder)
+        os.makedirs(subfolder_path, exist_ok=True)
+
+        for filename, content in files.items():
+            path = os.path.join(subfolder_path, filename)
+            with open(path, "wb") as f:
+                f.write(content)
+
+        logger.info(f"Saved {len(files)} GenBank files in {subfolder_path}")
+
+    logger.info("TCR HDRT pipeline finished successfully")
     
     print(f"\nAll results saved in folder: {args.output_dir}")
 
