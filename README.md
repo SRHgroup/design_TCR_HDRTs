@@ -64,15 +64,14 @@ python build_TCR_HDRTs.py -h
 
 ### To generate TCR HDR templates:
 
-If the conda environment is not already active, then activate conda environment `conda activate stitchr`
-
 ```
+conda activate stitchr
 python build_TCR_HDRTs.py --use_D112K example/example_input.tsv -o example_results
 ```
 
 ### Input Data
 
-Input files should be provided as tab-separated tables containing TCR sequence information compatible with Stitchr/Thimble formatting.
+Input files should be provided as tab-separated tables containing TCR sequence information compatible with STITCHR formatting (https://jamieheather.github.io/stitchr).
 
 An example input file is provided in: example/example_input.tsv
 
