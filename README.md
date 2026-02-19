@@ -34,7 +34,7 @@ conda create -n stitchr python=3.10 -y
 conda activate stitchr
 ```
 
-### Install STITCHR and dependencies:
+### Install STITCHR:
 
 For more information about STITCHR - https://jamieheather.github.io/stitchr
 
