@@ -145,3 +145,8 @@ python build_TCR_HDRTs.py my_input.tsv -o my_result
 1) Cloned plasmid (~185$/TCR)
 2) Or gene fragment for Golden Gate assembly (~88$/fragment)
 
+Plasmid design:
+
+![plasmid design](images/plasmid-design.png)
+
+
