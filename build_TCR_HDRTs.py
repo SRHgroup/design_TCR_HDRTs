@@ -132,6 +132,38 @@ def replace_restriction_sites(var_seq_series, var_aa_series, motifs=["CGTCTC","G
 # genbank record
 # =========================
 
+def add_cdr3_feature(features, parent_start, nt_sequence, aa_sequence, label):
+    """
+    Adds a CDR3 feature by locating the AA sequence inside translated NT sequence.
+    
+    parent_start = start position of the variable region in full construct
+    nt_sequence = nucleotide sequence of TRB or TRA variable region
+    aa_sequence = CDR3 amino acid sequence
+    """
+
+    if not aa_sequence:
+        return
+
+    translated = str(Seq(nt_sequence).translate(to_stop=False))
+
+    aa_index = translated.find(aa_sequence)
+    if aa_index == -1:
+        return  # CDR3 not found in translation
+
+    nt_start = parent_start + aa_index * 3
+    nt_end = nt_start + len(aa_sequence) * 3
+
+    features.append(
+        SeqFeature(
+            FeatureLocation(nt_start, nt_end),
+            type="misc_feature",
+            qualifiers={
+                "label": label,
+                "translation": aa_sequence
+            }
+        )
+    )
+
 def make_genbank_records(TCR_df, constants, logger):
 
     gb_files = {
@@ -139,7 +171,7 @@ def make_genbank_records(TCR_df, constants, logger):
         "BsmBI_Golden_Gate": {}
     }
 
-    def build_record(seq, record_id, description, feature_blocks):
+    def build_record(seq, record_id, description, feature_blocks, row=None):
         record = SeqRecord(
             Seq(seq),
             id=record_id,
@@ -156,15 +188,39 @@ def make_genbank_records(TCR_df, constants, logger):
         for fragment, label in feature_blocks:
             if not fragment:
                 continue
+
             length = len(fragment)
+            start_pos = pos
+            end_pos = pos + length
+
             features.append(
                 SeqFeature(
-                    FeatureLocation(pos, pos + length),
+                    FeatureLocation(start_pos, end_pos),
                     type="misc_feature",
                     qualifiers={"label": label}
                 )
             )
-            pos += length
+
+            # --- Add CDR3 annotation if variable region ---
+            if label == "TRB_variable" and row is not None:
+                add_cdr3_feature(
+                    features,
+                    parent_start=start_pos,
+                    nt_sequence=fragment,
+                    aa_sequence=row.get("TRB_CDR3"),
+                    label="TRB_CDR3"
+                )
+
+            if label == "TRA_variable" and row is not None:
+                add_cdr3_feature(
+                    features,
+                    parent_start=start_pos,
+                    nt_sequence=fragment,
+                    aa_sequence=row.get("TRA_CDR3"),
+                    label="TRA_CDR3"
+                )
+
+            pos = end_pos
 
         record.features = features
         return record
@@ -192,7 +248,8 @@ def make_genbank_records(TCR_df, constants, logger):
             seq=row["complete_insert_no_BsmBI"],
             record_id=row["TCR_name"],
             description="HDRT construct",
-            feature_blocks=standard_blocks
+            feature_blocks=standard_blocks,
+            row=row
         )
 
         buffer = io.StringIO()
@@ -217,7 +274,8 @@ def make_genbank_records(TCR_df, constants, logger):
             seq=row["BsmBI_fragment"],
             record_id=row["TCR_name"] + "_BsmBI",
             description="HDRT construct with BsmBI sites",
-            feature_blocks=bsmBI_blocks
+            feature_blocks=bsmBI_blocks,
+            row=row
         )
 
         buffer_bsmBI = io.StringIO()
